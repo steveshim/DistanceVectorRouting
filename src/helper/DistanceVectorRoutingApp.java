@@ -20,6 +20,7 @@ public class DistanceVectorRoutingApp {
     private DatagramSocket dSocket;
     private BufferedReader input;
     private HashMap<Peer, DataOutputStream> peerOutput;
+    private Integer packetCounter;
 
     public DistanceVectorRoutingApp() throws IOException {
         myIp = Inet4Address.getLocalHost().getHostAddress();
@@ -27,6 +28,7 @@ public class DistanceVectorRoutingApp {
 
         input = new BufferedReader(new InputStreamReader(System.in));
         peerOutput = new HashMap();
+        packetCounter = 0;
     }
 
     public void begin() throws IOException{
@@ -40,7 +42,7 @@ public class DistanceVectorRoutingApp {
                 case "server":
                     initiateApp(userInput);
                     break;
-                case "exit":
+                case "crash":
                     System.exit(0);
                     break;
                 default:
@@ -49,7 +51,18 @@ public class DistanceVectorRoutingApp {
         }
     }
 
-    public void initiateApp(String userInput){
-
+    public void initiateApp(String userInput) throws IOException{
+        String[] check = userInput.split(" ");
+        if (check.length != 5){
+            System.out.println("Invalid number of arguments given. Expected: 5, Given: " + check.length);
+        } else if (!check[1].equals("-t") || !check[3].equals("-i")){
+            System.out.println("Invalid arguments given.");
+        } else {
+            try {
+                Integer.parseInt(check[4]);
+            } catch (NumberFormatException e){
+                System.out.println("Last argument must be an integer.");
+            }
+        }
     }
 }
