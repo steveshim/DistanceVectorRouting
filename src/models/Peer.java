@@ -6,10 +6,15 @@ public class Peer {
     private int port;
     private Integer serverId;
 
-    public Peer(String host, int port, int serverId){
+    public Peer(int serverId, String host, int port){
+        this.serverId = serverId;
         this.host = host;
         this.port = port;
 
+    }
+
+    public Peer(int serverId){
+        this.serverId = serverId;
     }
 
     public String getHost() {
@@ -34,5 +39,20 @@ public class Peer {
 
     public void setServerId(Integer serverId) {
         this.serverId = serverId;
+    }
+
+    @Override
+    public boolean equals(Object o){
+        if (this == o)
+            return true;
+        if (!(o instanceof Peer))
+            return false;
+        Peer peer = (Peer) o;
+        return getServerId() == peer.getServerId();
+    }
+
+    @Override
+    public int hashCode(){
+        return getServerId();
     }
 }
