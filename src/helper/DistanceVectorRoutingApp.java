@@ -2,6 +2,7 @@ package helper;
 
 
 import models.Peer;
+import models.Route;
 
 import java.io.*;
 import java.net.DatagramSocket;
@@ -12,17 +13,19 @@ import java.util.HashMap;
 public class DistanceVectorRoutingApp {
 
     private ArrayList<Peer> peers;
+    private ArrayList<Peer> neighbors;
+    private ArrayList<Route> routes;
     private Integer myPort;
     private Integer myId;
     private String myIp;
     private DatagramSocket dSocket;
     private BufferedReader input;
     private HashMap<Peer, DataOutputStream> peerOutput;
-    private HashMap<Peer, Integer> neighborCosts;
+    private HashMap<Peer, Integer> peerCosts;
     private Integer packetCounter;
     private Integer interval;
     private Integer nodes;
-    private Integer neighbors;
+    private Integer numOfNeighbors;
     private int serverId = 0;
 
     public DistanceVectorRoutingApp() throws IOException {
@@ -32,6 +35,9 @@ public class DistanceVectorRoutingApp {
         input = new BufferedReader(new InputStreamReader(System.in));
         peerOutput = new HashMap();
         packetCounter = 0;
+        peers = new ArrayList();
+        routes = new ArrayList();
+        neighbors = new ArrayList();
     }
 
     public void begin() throws IOException{
@@ -49,6 +55,24 @@ public class DistanceVectorRoutingApp {
                     break;
                 case "help":
                     helpMessage();
+                    break;
+                case "myip":
+                    System.out.println("Your IP address is: " + myIp);
+                    break;
+                case "update":
+                    //need to implement
+                    break;
+                case "step":
+                    //need to implement
+                    break;
+                case "packets":
+                    System.out.println("You have received " + packetCounter + " packets since you last called 'packets'.");
+                    break;
+                case "display":
+                    displayTable();
+                    break;
+                case "disable":
+                    //need to implement
                     break;
                 case "crash":
                     System.exit(0);
@@ -73,7 +97,7 @@ public class DistanceVectorRoutingApp {
             }
             BufferedReader br = new BufferedReader(new FileReader(check[2]));
             nodes = Integer.parseInt(br.readLine());
-            neighbors = Integer.parseInt(br.readLine());
+            numOfNeighbors = Integer.parseInt(br.readLine());
             for (int i=0; i<nodes; i++){
                 String[] temp = br.readLine().split(" ");
                 if (!temp[1].equals(myIp.toString())) {
@@ -85,11 +109,13 @@ public class DistanceVectorRoutingApp {
                     myPort = Integer.parseInt(temp[2]);
                 }
             }
-            for (int j=0; j<neighbors; j++){
+            for (int j=0; j<numOfNeighbors; j++){
                 String[] temp = br.readLine().split(" ");
                 int tempServerId = Integer.parseInt(temp[0]);
                 Peer tempPeer = peers.get(peers.indexOf(new Peer(tempServerId)));
-                neighborCosts.put(tempPeer, Integer.parseInt(temp[1]));
+                neighbors.add(tempPeer);
+                peerCosts.put(tempPeer, Integer.parseInt(temp[1]));
+                routes.add(new Route(new Peer(myId), tempPeer, Integer.parseInt(temp[1])));
             }
         }
     }
@@ -99,15 +125,27 @@ public class DistanceVectorRoutingApp {
         System.out.println("Command \t \t \t \t Function");
         System.out.println("------------------------------------------------------------------------------------------------------------");
         System.out.println("server -t [filename] -i [time interval] \t Loads topology file and transmits ever [time interval] seconds.");
-        System.out.println("help \t \t \t Displays valid commands for chat application.");
-        System.out.println("myip \t \t \t Displays your IP address.");
+        System.out.println("help \t \t \t \t \t \t \t \t \t \t Displays valid commands for chat application.");
+        System.out.println("myip \t \t \t \t \t \t \t \t \t \t Displays your IP address.");
         System.out.println("update [server id 1] [server id 2] [cost] \t Specifies new link [cost] between [server id 1] and [sever id 2].");
-        System.out.println("step \t \t Sends routing table update to all neighbors.");
-        System.out.println("packets \t \t Display total number of distance vector packets this server has received since last invocation.");
-        System.out.println("display \t \t Displays current routing table.");
-        System.out.println("disable [server id] \t \t Disable link to [server id].");
-        System.out.println("crash \t \t \t Close all connections and terminate application.");
+        System.out.println("step \t \t \t \t \t \t \t \t \t \t Sends routing table update to all neighbors.");
+        System.out.println("packets \t \t \t \t \t \t \t \t \t Display total number of distance vector packets this server has received since last invocation.");
+        System.out.println("display \t \t \t \t \t \t \t \t \t Displays current routing table.");
+        System.out.println("disable [server id] \t \t \t \t \t \t Disable link to [server id].");
+        System.out.println("crash \t \t \t \t \t \t \t \t \t \t Close all connections and terminate application.");
         System.out.println("------------------------------------------------------------------------------------------------------------");
         System.out.println("\n");
     }
+
+    public void displayTable(){
+        if (myPort == null)
+            System.out.println("Need to start server with 'server' command first.");
+        else{
+            for(Peer peer: peers){
+                System.out.println(myId + "");
+            }
+        }
+    }
+
+
 }
