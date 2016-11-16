@@ -17,6 +17,10 @@ public class Peer {
         this.serverId = serverId;
     }
 
+    public Peer(String ip){
+        this.host = ip;
+    }
+
     public String getHost() {
         return host;
     }
@@ -48,7 +52,8 @@ public class Peer {
         if (!(o instanceof Peer))
             return false;
         Peer peer = (Peer) o;
-        return getServerId() == peer.getServerId();
+        return (((getServerId() != null && peer.getServerId() != null) && getServerId() == peer.getServerId()) ||
+                ((getHost() != null && peer.getHost() != null) && getHost().equals(peer.getHost())));
     }
 
     @Override

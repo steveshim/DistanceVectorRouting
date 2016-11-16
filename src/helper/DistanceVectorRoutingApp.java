@@ -138,7 +138,9 @@ public class DistanceVectorRoutingApp {
                     try {
                         serverSocket.receive(receivePacket);
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
-                        System.out.println(receivedMessage);
+                        Peer tempPeer = new Peer(receivePacket.getAddress().toString().substring(1));
+                        System.out.println("Server " + peers.get(peers.indexOf(tempPeer)).getServerId() + " sends: \n"
+                                + receivedMessage + "\n");
                     } catch (IOException e){
                         e.printStackTrace();
                     }
