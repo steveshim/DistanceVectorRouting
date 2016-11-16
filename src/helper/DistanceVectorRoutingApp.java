@@ -10,6 +10,8 @@ import java.net.DatagramSocket;
 import java.net.Inet4Address;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 
 public class DistanceVectorRoutingApp {
@@ -22,19 +24,16 @@ public class DistanceVectorRoutingApp {
     private String myIp;
     private DatagramSocket dSocket;
     private BufferedReader input;
-    private HashMap<Peer, DataOutputStream> peerOutput;
     private Integer packetCounter;
     private Integer interval;
     private Integer nodes;
     private Integer numOfNeighbors;
-    private int serverId = 0;
 
     public DistanceVectorRoutingApp() throws IOException {
         myIp = Inet4Address.getLocalHost().getHostAddress();
         peers = new ArrayList();
 
         input = new BufferedReader(new InputStreamReader(System.in));
-        peerOutput = new HashMap();
         packetCounter = 0;
         peers = new ArrayList();
         routes = new ArrayList();
@@ -60,22 +59,42 @@ public class DistanceVectorRoutingApp {
                     System.out.println("Your IP address is: " + myIp);
                     break;
                 case "update":
-                    update(userInput);
+                    if (myPort == null)
+                        System.out.println("Need to start server with 'server' command first.");
+                    else
+                        update(userInput);
                     break;
                 case "step":
-                    //need to implement
+                    if (myPort == null)
+                        System.out.println("Need to start server with 'server' command first.");
+                    else{
+                        step();
+                    }
                     break;
                 case "packets":
                     System.out.println("You have received " + packetCounter + " packets since you last called 'packets'.");
+                    packetCounter = 0;
                     break;
                 case "display":
-                    displayTable();
+                    if (myPort == null)
+                        System.out.println("Need to start server with 'server' command first.");
+                    else
+                        displayTable();
                     break;
                 case "disable":
-                    //need to implement
+                    if (myPort == null)
+                        System.out.println("Need to start server with 'server' command first.");
+                    else{
+                        //need to implement
+                    }
                     break;
                 case "crash":
+                    System.out.println("You are exiting the program.");
                     System.exit(0);
+                    break;
+                case "neighbors":
+                    //for testing purposes
+                    displayNeighbors();
                     break;
                 default:
                     System.out.println("That is not a valid command. Type 'help' for a list of commands.");
@@ -104,10 +123,10 @@ public class DistanceVectorRoutingApp {
                         if (!temp[1].equals(myIp.toString())) {
                             Peer tempPeer = new Peer(Integer.parseInt(temp[0]), temp[1], Integer.parseInt(temp[2]));
                             peers.add(tempPeer);
-                            serverId++;
                         } else{
                             myId = Integer.parseInt(temp[0]);
                             myPort = Integer.parseInt(temp[2]);
+                            peers.add(new Peer(myId, myIp, myPort));
                         }
                     }
                     for (int j=0; j<numOfNeighbors; j++){
@@ -131,6 +150,7 @@ public class DistanceVectorRoutingApp {
         }
     }
 
+    //Listening socket for incoming messages
     public void startServerSocket(){
         new Thread(() -> {
             try {
@@ -144,6 +164,7 @@ public class DistanceVectorRoutingApp {
                         Peer tempPeer = new Peer(receivePacket.getAddress().toString().substring(1));
                         System.out.println("Server " + peers.get(peers.indexOf(tempPeer)).getServerId() + " sends: \n"
                                 + receivedMessage + "\n");
+                        packetCounter++;
                     } catch (IOException e){
                         e.printStackTrace();
                     }
@@ -159,7 +180,7 @@ public class DistanceVectorRoutingApp {
      */
     public void helpMessage(){
         System.out.println("\n");
-        System.out.println("Command \t \t \t \t Function");
+        System.out.println("Command \t \t \t \t \t \t \t \t \t Function");
         System.out.println("------------------------------------------------------------------------------------------------------------");
         System.out.println("server -t [filename] -i [time interval] \t Loads topology file and transmits ever [time interval] seconds.");
         System.out.println("help \t \t \t \t \t \t \t \t \t \t Displays valid commands for chat application.");
@@ -195,10 +216,17 @@ public class DistanceVectorRoutingApp {
                     routes.get(routes.indexOf(tempRoute)).setCost(tempRoute.getCost());
                     System.out.println("Updated cost of route \n" + tempRoute);
                 } else{
+                    p1 = peers.get(peers.indexOf(p1));
+                    p2 = peers.get(peers.indexOf(p2));
+                    tempRoute = new Route(p1, p2, cost);
                     routes.add(tempRoute);
+                    if(p1.getServerId()==myId)
+                        neighbors.add(p2);
+                    if(p2.getServerId()==myId)
+                        neighbors.add(p1);
                     System.out.println("New route added \n" + tempRoute);
                 }
-
+                sortRoutes();
             } catch (NumberFormatException e){
                 System.out.println("Must input integers in form of 'update [server id 1] [server id 2] [cost]'");
             }
@@ -206,16 +234,51 @@ public class DistanceVectorRoutingApp {
     }
 
     /*
+    When user types "step"
+     */
+    public void step(){
+
+    }
+
+    /*
     When user types "display"
      */
     public void displayTable(){
-        if (myPort == null)
-            System.out.println("Need to start server with 'server' command first.");
-        else{
-            for(Route route: routes){
-                System.out.println(route);
+        System.out.println("Routing table:");
+        for(Route route: routes) {
+            System.out.println(route);
+        }
+        System.out.print("\n");
+    }
+
+
+    /*
+    HELPER METHOD TO SORT ROUTES
+     */
+    public void sortRoutes(){
+        for(Route route: routes){
+            Peer tempPeer1 = route.getPeerFrom();
+            Peer tempPeer2 = route.getPeerTo();
+            if(tempPeer2.getServerId()==myId){
+                route.setPeerFrom(tempPeer2);
+                route.setPeerTo(tempPeer1);
+            } else if(tempPeer1.getServerId() != myId && neighbors.contains(tempPeer2) && !neighbors.contains(tempPeer1)){
+                route.setPeerFrom(tempPeer2);
+                route.setPeerTo(tempPeer1);
             }
         }
+        Collections.sort(routes, (a,b)->a.getPeerTo().getServerId().compareTo(b.getPeerTo().getServerId()));
+    }
+
+    /*
+    HELPER TO DISPLAY NEIGHBORS
+     */
+    private void displayNeighbors(){
+        System.out.println("Current neighbors are: ");
+        for(Peer peer:neighbors){
+            System.out.println(peer);
+        }
+        System.out.print("\n");
     }
 
 
