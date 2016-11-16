@@ -206,7 +206,11 @@ public class DistanceVectorRoutingApp {
             try{
                 int id1 = Integer.parseInt(updates[1]);
                 int id2 = Integer.parseInt(updates[2]);
-                int cost = Integer.parseInt(updates[3]);
+                int cost;
+                if (updates[3].toLowerCase().equals("inf"))
+                    cost = Integer.MAX_VALUE;
+                else
+                    cost = Integer.parseInt(updates[3]);
                 Peer p1 = new Peer(id1);
                 Peer p2 = new Peer(id2);
                 Route tempRoute = new Route(p1, p2, cost);
