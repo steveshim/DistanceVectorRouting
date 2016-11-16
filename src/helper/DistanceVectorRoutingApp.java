@@ -60,7 +60,7 @@ public class DistanceVectorRoutingApp {
                     System.out.println("Your IP address is: " + myIp);
                     break;
                 case "update":
-                    //need to implement
+                    update(userInput);
                     break;
                 case "step":
                     //need to implement
@@ -83,6 +83,9 @@ public class DistanceVectorRoutingApp {
         }
     }
 
+    /*
+    When user types "server"
+     */
     public void initiateApp(String userInput) throws IOException{
         String[] check = userInput.split(" ");
         if (check.length != 5){
@@ -151,6 +154,9 @@ public class DistanceVectorRoutingApp {
         }).start();
     }
 
+    /*
+    When user types "help"
+     */
     public void helpMessage(){
         System.out.println("\n");
         System.out.println("Command \t \t \t \t Function");
@@ -168,6 +174,40 @@ public class DistanceVectorRoutingApp {
         System.out.println("\n");
     }
 
+    /*
+    When user types "update"
+     */
+    public void update(String userInput){
+        String[] updates = userInput.split(" ");
+        if (updates.length != 4){
+            System.out.println("Invalid number of arguments, expected 4, received " + updates.length);
+        } else{
+            try{
+                int id1 = Integer.parseInt(updates[1]);
+                int id2 = Integer.parseInt(updates[2]);
+                int cost = Integer.parseInt(updates[3]);
+                Peer p1 = new Peer(id1);
+                Peer p2 = new Peer(id2);
+                Route tempRoute = new Route(p1, p2, cost);
+                if (!peers.contains(p1) || !peers.contains(p2)){
+                    System.out.println("These peers do not exist in the network.");
+                } else if (routes.contains(tempRoute)){
+                    routes.get(routes.indexOf(tempRoute)).setCost(tempRoute.getCost());
+                    System.out.println("Updated cost of route \n" + tempRoute);
+                } else{
+                    routes.add(tempRoute);
+                    System.out.println("New route added \n" + tempRoute);
+                }
+
+            } catch (NumberFormatException e){
+                System.out.println("Must input integers in form of 'update [server id 1] [server id 2] [cost]'");
+            }
+        }
+    }
+
+    /*
+    When user types "display"
+     */
     public void displayTable(){
         if (myPort == null)
             System.out.println("Need to start server with 'server' command first.");
