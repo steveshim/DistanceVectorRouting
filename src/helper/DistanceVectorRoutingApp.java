@@ -5,8 +5,10 @@ import models.Peer;
 import models.Route;
 
 import java.io.*;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.Inet4Address;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -42,7 +44,6 @@ public class DistanceVectorRoutingApp {
     public void begin() throws IOException{
         System.out.println("Beginning Distance Vector Routing Program for CS4470.");
         System.out.println("Type 'server -t [filename] -i [time interval]' to begin.");
-        System.out.println("Type 'help' for more commands.");
 
         while(true){
             String userInput = input.readLine();
@@ -91,34 +92,61 @@ public class DistanceVectorRoutingApp {
         } else {
             try {
                 interval = Integer.parseInt(check[4]);
+                try{
+                    BufferedReader br = new BufferedReader(new FileReader(check[2]));
+                    nodes = Integer.parseInt(br.readLine());
+                    numOfNeighbors = Integer.parseInt(br.readLine());
+                    for (int i=0; i<nodes; i++){
+                        String[] temp = br.readLine().split(" ");
+                        if (!temp[1].equals(myIp.toString())) {
+                            Peer tempPeer = new Peer(Integer.parseInt(temp[0]), temp[1], Integer.parseInt(temp[2]));
+                            peers.add(tempPeer);
+                            serverId++;
+                        } else{
+                            myId = Integer.parseInt(temp[0]);
+                            myPort = Integer.parseInt(temp[2]);
+                        }
+                    }
+                    for (int j=0; j<numOfNeighbors; j++){
+                        String[] temp = br.readLine().split(" ");
+                        int tempServerId = Integer.parseInt(temp[1]);
+                        Peer tempPeer = peers.get(peers.indexOf(new Peer(tempServerId)));
+                        neighbors.add(tempPeer);
+                        routes.add(new Route(tempPeer, new Peer(myId), Integer.parseInt(temp[2])));
+                    }
+                    System.out.println("Your ip is " + myIp + ", listening on port " + myPort + " with server id " + myId);
+                    System.out.println("Toplogy file " + check[2] + " has been read.");
+                    displayTable();
+                    System.out.println("Type 'help' for more commands.");
+                    startServerSocket();
+                } catch (IOException e){
+                    System.out.println("File not found.");
+                }
             } catch (NumberFormatException e){
                 System.out.println("Last argument must be an integer.");
             }
-            BufferedReader br = new BufferedReader(new FileReader(check[2]));
-            nodes = Integer.parseInt(br.readLine());
-            numOfNeighbors = Integer.parseInt(br.readLine());
-            for (int i=0; i<nodes; i++){
-                String[] temp = br.readLine().split(" ");
-                if (!temp[1].equals(myIp.toString())) {
-                    Peer tempPeer = new Peer(Integer.parseInt(temp[0]), temp[1], Integer.parseInt(temp[2]));
-                    peers.add(tempPeer);
-                    serverId++;
-                } else{
-                    myId = Integer.parseInt(temp[0]);
-                    myPort = Integer.parseInt(temp[2]);
-                }
-            }
-            for (int j=0; j<numOfNeighbors; j++){
-                String[] temp = br.readLine().split(" ");
-                int tempServerId = Integer.parseInt(temp[1]);
-                Peer tempPeer = peers.get(peers.indexOf(new Peer(tempServerId)));
-                neighbors.add(tempPeer);
-                routes.add(new Route(tempPeer, new Peer(myId), Integer.parseInt(temp[2])));
-            }
-            System.out.println("Your ip is " + myIp + ", listening on port " + myPort + " with server id " + myId);
-            System.out.println("Toplogy file " + check[2] + " has been read.");
-            displayTable();
         }
+    }
+
+    public void startServerSocket(){
+        new Thread(() -> {
+            try {
+                DatagramSocket serverSocket = new DatagramSocket(myPort);
+                byte[] buffer = new byte[1024];
+                DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
+                while(true){
+                    try {
+                        serverSocket.receive(receivePacket);
+                        String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
+                        System.out.println(receivedMessage);
+                    } catch (IOException e){
+                        e.printStackTrace();
+                    }
+                }
+            } catch (SocketException e){
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     public void helpMessage(){
