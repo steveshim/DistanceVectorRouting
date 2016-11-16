@@ -4,7 +4,7 @@ public class Route {
     private Peer peerFrom, peerTo;
     private Integer cost;
 
-    public Route(Peer from, Peer to, int cost){
+    public Route(Peer to, Peer from, int cost){
         this.peerFrom = from;
         this.peerTo = to;
         this.cost = cost;
@@ -43,5 +43,11 @@ public class Route {
         Route route = (Route) o;
         return ((getPeerTo().equals(route.getPeerTo()) && getPeerFrom().equals(route.getPeerFrom()))
             || (getPeerFrom().equals(route.getPeerTo()) && getPeerTo().equals(route.getPeerFrom())));
+    }
+
+    @Override
+    public String toString(){
+        return "To server " + getPeerTo().getServerId() + " from server " + getPeerFrom().getServerId() +
+                " has cost of " + getCost() + ".";
     }
 }

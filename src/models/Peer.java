@@ -55,4 +55,9 @@ public class Peer {
     public int hashCode(){
         return getServerId();
     }
+
+    @Override
+    public String toString(){
+        return "Server id is " + getServerId();
+    }
 }

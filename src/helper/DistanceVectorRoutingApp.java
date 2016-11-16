@@ -21,7 +21,6 @@ public class DistanceVectorRoutingApp {
     private DatagramSocket dSocket;
     private BufferedReader input;
     private HashMap<Peer, DataOutputStream> peerOutput;
-    private HashMap<Peer, Integer> peerCosts;
     private Integer packetCounter;
     private Integer interval;
     private Integer nodes;
@@ -111,12 +110,14 @@ public class DistanceVectorRoutingApp {
             }
             for (int j=0; j<numOfNeighbors; j++){
                 String[] temp = br.readLine().split(" ");
-                int tempServerId = Integer.parseInt(temp[0]);
+                int tempServerId = Integer.parseInt(temp[1]);
                 Peer tempPeer = peers.get(peers.indexOf(new Peer(tempServerId)));
                 neighbors.add(tempPeer);
-                peerCosts.put(tempPeer, Integer.parseInt(temp[1]));
-                routes.add(new Route(new Peer(myId), tempPeer, Integer.parseInt(temp[1])));
+                routes.add(new Route(tempPeer, new Peer(myId), Integer.parseInt(temp[2])));
             }
+            System.out.println("Your ip is " + myIp + ", listening on port " + myPort + " with server id " + myId);
+            System.out.println("Toplogy file " + check[2] + " has been read.");
+            displayTable();
         }
     }
 
@@ -141,8 +142,8 @@ public class DistanceVectorRoutingApp {
         if (myPort == null)
             System.out.println("Need to start server with 'server' command first.");
         else{
-            for(Peer peer: peers){
-                System.out.println(myId + "");
+            for(Route route: routes){
+                System.out.println(route);
             }
         }
     }
