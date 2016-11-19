@@ -198,6 +198,7 @@ public class DistanceVectorRoutingApp {
                         message = message + "inf" + "\n";
                     }
                 }
+                //System.out.println(message);
                 byte[] sendData = new byte[1024];
                 sendData = message.getBytes();
                 InetAddress destinationIp;
