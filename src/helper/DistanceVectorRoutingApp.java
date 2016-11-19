@@ -5,39 +5,37 @@ import models.Peer;
 import models.Route;
 
 import java.io.*;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.Inet4Address;
-import java.net.SocketException;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class DistanceVectorRoutingApp {
 
     private ArrayList<Peer> peers;
     private ArrayList<Peer> neighbors;
     private ArrayList<Route> routes;
+    private Peer me;
     private Integer myPort;
     private Integer myId;
     private String myIp;
-    private DatagramSocket dSocket;
+    private DatagramSocket serverSocket;
     private BufferedReader input;
     private Integer packetCounter;
     private Integer interval;
     private Integer nodes;
     private Integer numOfNeighbors;
+    private ScheduledExecutorService scheduledUpdate;
 
     public DistanceVectorRoutingApp() throws IOException {
         myIp = Inet4Address.getLocalHost().getHostAddress();
-        peers = new ArrayList();
-
         input = new BufferedReader(new InputStreamReader(System.in));
         packetCounter = 0;
-        peers = new ArrayList();
-        routes = new ArrayList();
-        neighbors = new ArrayList();
     }
 
     public void begin() throws IOException{
@@ -116,6 +114,9 @@ public class DistanceVectorRoutingApp {
                 interval = Integer.parseInt(check[4]);
                 try{
                     BufferedReader br = new BufferedReader(new FileReader(check[2]));
+                    peers = new ArrayList();
+                    routes = new ArrayList();
+                    neighbors = new ArrayList();
                     nodes = Integer.parseInt(br.readLine());
                     numOfNeighbors = Integer.parseInt(br.readLine());
                     for (int i=0; i<nodes; i++){
@@ -126,7 +127,9 @@ public class DistanceVectorRoutingApp {
                         } else{
                             myId = Integer.parseInt(temp[0]);
                             myPort = Integer.parseInt(temp[2]);
-                            peers.add(new Peer(myId, myIp, myPort));
+                            me = new Peer(myId, myIp, myPort);
+                            peers.add(me);
+                            routes.add(new Route(me, me, 0));
                         }
                     }
                     for (int j=0; j<numOfNeighbors; j++){
@@ -141,6 +144,7 @@ public class DistanceVectorRoutingApp {
                     displayTable();
                     System.out.println("Type 'help' for more commands.");
                     startServerSocket();
+                    startRoutingUpdateInterval(interval);
                 } catch (IOException e){
                     System.out.println("File not found.");
                 }
@@ -154,7 +158,7 @@ public class DistanceVectorRoutingApp {
     public void startServerSocket(){
         new Thread(() -> {
             try {
-                DatagramSocket serverSocket = new DatagramSocket(myPort);
+                serverSocket = new DatagramSocket(myPort);
                 byte[] buffer = new byte[1024];
                 DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
                 while(true){
@@ -173,6 +177,44 @@ public class DistanceVectorRoutingApp {
                 e.printStackTrace();
             }
         }).start();
+    }
+
+    //Start periodically sending routing update
+    public void startRoutingUpdateInterval(int userInterval){
+        scheduledUpdate = Executors.newScheduledThreadPool(1);
+        scheduledUpdate.scheduleAtFixedRate(new Runnable(){
+            @Override
+            public void run(){
+                String message = peers.size() + "\n";
+                for(int i=0; i<peers.size(); i++){
+                    Peer tempPeer = peers.get(i);
+                    message = message + tempPeer.getHost() + "\n"
+                        + tempPeer.getPort() + "\n"
+                        + tempPeer.getServerId() + " ";
+                    Route tempRoute = new Route(tempPeer, me, 0);
+                    if (routes.contains(tempRoute)){
+                        message = message + routes.get(routes.indexOf(tempRoute)).getCost() + "\n";
+                    } else{
+                        message = message + "inf" + "\n";
+                    }
+                }
+                byte[] sendData = new byte[1024];
+                sendData = message.getBytes();
+                InetAddress destinationIp;
+                int destinationPort;
+                DatagramPacket out;
+                for(Peer peer:neighbors){
+                    try {
+                        destinationIp = InetAddress.getByName(peer.getHost());
+                        destinationPort = peer.getPort();
+                        out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
+                        serverSocket.send(out);
+                    } catch (Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }, userInterval, userInterval, TimeUnit.SECONDS);
     }
 
     /*
