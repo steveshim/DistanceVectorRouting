@@ -83,7 +83,7 @@ public class DistanceVectorRoutingApp {
                     if (myPort == null)
                         System.out.println("Need to start server with 'server' command first.");
                     else{
-                        //need to implement
+                        disable(userInput);
                     }
                     break;
                 case "crash":
@@ -169,6 +169,26 @@ public class DistanceVectorRoutingApp {
                         System.out.println("Server " + peers.get(peers.indexOf(tempPeer)).getServerId() + " sends: \n"
                                 + receivedMessage + "\n");
                         packetCounter++;
+                        //receiving an update message
+                        if (receivedMessage.toLowerCase().startsWith("update")){
+                            String[] updateMessage = receivedMessage.split(" ");
+                            Peer p1 = new Peer(Integer.parseInt(updateMessage[1]));
+                            p1 = peers.get(peers.indexOf(p1));
+                            Peer p2 = new Peer(Integer.parseInt(updateMessage[2]));
+                            p2 = peers.get(peers.indexOf(p2));
+                            int cost = Integer.parseInt(updateMessage[3]);
+                            Route tempRoute = new Route(p1, p2, cost);
+                            tempRoute = routes.get(routes.indexOf(tempRoute));
+                            if (routes.contains(tempRoute)){
+                                routes.get(routes.indexOf(tempRoute)).setCost((cost));
+                            } else{
+                                routes.add(tempRoute);
+                                if (p1.equals(me))
+                                    neighbors.add(p2);
+                                else
+                                    neighbors.add(p1);
+                            }
+                        }
                     } catch (IOException e){
                         e.printStackTrace();
                     }
@@ -185,37 +205,42 @@ public class DistanceVectorRoutingApp {
         scheduledUpdate.scheduleAtFixedRate(new Runnable(){
             @Override
             public void run(){
-                String message = peers.size() + "\n";
-                for(int i=0; i<peers.size(); i++){
-                    Peer tempPeer = peers.get(i);
-                    message = message + tempPeer.getHost() + "\n"
-                        + tempPeer.getPort() + "\n"
-                        + tempPeer.getServerId() + " ";
-                    Route tempRoute = new Route(tempPeer, me, 0);
-                    if (routes.contains(tempRoute)){
-                        message = message + routes.get(routes.indexOf(tempRoute)).getCost() + "\n";
-                    } else{
-                        message = message + "inf" + "\n";
-                    }
-                }
-                //System.out.println(message);
-                byte[] sendData = new byte[1024];
-                sendData = message.getBytes();
-                InetAddress destinationIp;
-                int destinationPort;
-                DatagramPacket out;
-                for(Peer peer:neighbors){
-                    try {
-                        destinationIp = InetAddress.getByName(peer.getHost());
-                        destinationPort = peer.getPort();
-                        out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
-                        serverSocket.send(out);
-                    } catch (Exception e){
-                        e.printStackTrace();
-                    }
-                }
+                sendTable();
             }
         }, userInterval, userInterval, TimeUnit.SECONDS);
+    }
+
+    public void sendTable(){
+        String message = peers.size() + "\n";
+        for(int i=0; i<peers.size(); i++){
+            Peer tempPeer = peers.get(i);
+            message = message + tempPeer.getHost() + "\n"
+                    + tempPeer.getPort() + "\n"
+                    + tempPeer.getServerId() + " ";
+            Route tempRoute = new Route(tempPeer, me, 0);
+            if (routes.contains(tempRoute)){
+                message = message + routes.get(routes.indexOf(tempRoute)).getCost() + "\n";
+            } else{
+                message = message + "inf" + "\n";
+            }
+        }
+        //System.out.println(message);
+        byte[] sendData = new byte[1024];
+        sendData = message.getBytes();
+        InetAddress destinationIp;
+        int destinationPort;
+        DatagramPacket out;
+        for(Peer peer:neighbors){
+            try {
+                destinationIp = InetAddress.getByName(peer.getHost());
+                destinationPort = peer.getPort();
+                System.out.println("Sending message to " + destinationIp + ":" + destinationPort);
+                out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
+                serverSocket.send(out);
+            } catch (Exception e){
+                e.printStackTrace();
+            }
+        }
     }
 
     /*
@@ -260,8 +285,12 @@ public class DistanceVectorRoutingApp {
                 if (!peers.contains(p1) || !peers.contains(p2)){
                     System.out.println("These peers do not exist in the network.");
                 } else if (routes.contains(tempRoute)){
-                    routes.get(routes.indexOf(tempRoute)).setCost(tempRoute.getCost());
+                    p1 = peers.get(peers.indexOf(p1));
+                    p2 = peers.get(peers.indexOf(p2));
+                    tempRoute = routes.get(routes.indexOf(tempRoute));
+                    tempRoute.setCost(tempRoute.getCost());
                     System.out.println("Updated cost of route \n" + tempRoute);
+                    sendUpdate(p1, p2, cost);
                 } else{
                     p1 = peers.get(peers.indexOf(p1));
                     p2 = peers.get(peers.indexOf(p2));
@@ -272,6 +301,7 @@ public class DistanceVectorRoutingApp {
                     if(p2.getServerId()==myId)
                         neighbors.add(p1);
                     System.out.println("New route added \n" + tempRoute);
+                    sendUpdate(p1, p2, cost);
                 }
                 sortRoutes();
             } catch (NumberFormatException e){
@@ -280,11 +310,42 @@ public class DistanceVectorRoutingApp {
         }
     }
 
+    public void sendUpdate(Peer p1, Peer p2, int cost){
+        String message = "update " + p1.getServerId() + " " + p2.getServerId() + " " + cost;
+        byte[] sendData = new byte[1024];
+        sendData = message.getBytes();
+        InetAddress destinationIp;
+        int destinationPort;
+        DatagramPacket out;
+        if (!p1.equals(me)){
+            try {
+                destinationIp = InetAddress.getByName(p1.getHost());
+                destinationPort = p1.getPort();
+                System.out.println("Sending update to " + destinationIp + ":" + destinationPort);
+                out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
+                serverSocket.send(out);
+            } catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+        if (!p2.equals(me)){
+            try {
+                destinationIp = InetAddress.getByName(p2.getHost());
+                destinationPort = p2.getPort();
+                System.out.println("Sending update to " + destinationIp + ":" + destinationPort);
+                out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
+                serverSocket.send(out);
+            } catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
     /*
     When user types "step"
      */
     public void step(){
-
+        sendTable();
     }
 
     /*
@@ -298,6 +359,29 @@ public class DistanceVectorRoutingApp {
         System.out.print("\n");
     }
 
+    /*
+    When user types "disable"
+     */
+    public void disable(String userInput){
+        String[] input = userInput.split(" ");
+        if (input.length != 2)
+            System.out.println("Invalid number of arguments, expected 2, received :" + input.length);
+        else {
+            try{
+                int id = Integer.parseInt(input[1]);
+                Peer tempPeer = new Peer(id);
+                if (peers.contains(tempPeer)){
+                    peers.remove(tempPeer);
+                    if (neighbors.contains(tempPeer))
+                        neighbors.remove(tempPeer);
+                    System.out.println("Removed server id " + tempPeer.getServerId() + " from network.");
+                } else
+                    System.out.println("Server id " + tempPeer.getServerId() + " does not exist in network.");
+            } catch (NumberFormatException e){
+                System.out.println("Second argument must be an integer.");
+            }
+        }
+    }
 
     /*
     HELPER METHOD TO SORT ROUTES
