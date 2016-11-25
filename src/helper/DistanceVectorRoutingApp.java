@@ -6,10 +6,7 @@ import models.Route;
 
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -31,10 +28,12 @@ public class DistanceVectorRoutingApp {
     private Integer nodes;
     private Integer numOfNeighbors;
     private ScheduledExecutorService scheduledUpdate;
+    private Map<Peer, ArrayList<Route>> destinationRoutes;
 
     public DistanceVectorRoutingApp() throws IOException {
         myIp = Inet4Address.getLocalHost().getHostAddress();
         input = new BufferedReader(new InputStreamReader(System.in));
+        destinationRoutes = new HashMap();
         packetCounter = 0;
     }
 
@@ -87,7 +86,7 @@ public class DistanceVectorRoutingApp {
                     }
                     break;
                 case "crash":
-                    System.out.println("You are exiting the program.");
+                    System.out.println("crash SUCCESS");
                     System.exit(0);
                     break;
                 case "neighbors":
@@ -106,9 +105,9 @@ public class DistanceVectorRoutingApp {
     public void initiateApp(String userInput) throws IOException{
         String[] check = userInput.split(" ");
         if (check.length != 5){
-            System.out.println("Invalid number of arguments given. Expected: 5, Given: " + check.length);
+            System.out.println("server: Invalid number of arguments given. Expected: 5, Given: " + check.length);
         } else if (!check[1].equals("-t") || !check[3].equals("-i")){
-            System.out.println("Invalid arguments given. Must be 'server -t [filename] -i [interval]'.");
+            System.out.println("server: Invalid arguments given. Must be 'server -t [filename] -i [interval]'.");
         } else {
             try {
                 interval = Integer.parseInt(check[4]);
@@ -137,8 +136,13 @@ public class DistanceVectorRoutingApp {
                         int tempServerId = Integer.parseInt(temp[1]);
                         Peer tempPeer = peers.get(peers.indexOf(new Peer(tempServerId)));
                         neighbors.add(tempPeer);
-                        routes.add(new Route(tempPeer, new Peer(myId), Integer.parseInt(temp[2])));
+                        Route tempRoute = new Route(tempPeer, me, Integer.parseInt(temp[2]));
+                        routes.add(tempRoute);
+                        ArrayList<Route> tempDestinationRoutes = new ArrayList();
+                        tempDestinationRoutes.add(tempRoute);
+                        destinationRoutes.put(tempPeer, tempDestinationRoutes);
                     }
+                    System.out.println("server SUCCESS");
                     System.out.println("Your ip is " + myIp + ", listening on port " + myPort + " with server id " + myId);
                     System.out.println("Toplogy file " + check[2] + " has been read.");
                     displayTable();
@@ -146,10 +150,10 @@ public class DistanceVectorRoutingApp {
                     startServerSocket();
                     startRoutingUpdateInterval(interval);
                 } catch (IOException e){
-                    System.out.println("File not found.");
+                    System.out.println("server: File not found.");
                 }
             } catch (NumberFormatException e){
-                System.out.println("Last argument must be an integer.");
+                System.out.println("server: Last argument must be an integer.");
             }
         }
     }
@@ -166,8 +170,8 @@ public class DistanceVectorRoutingApp {
                         serverSocket.receive(receivePacket);
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
                         Peer tempPeer = new Peer(receivePacket.getAddress().toString().substring(1));
-                        System.out.println("Server " + peers.get(peers.indexOf(tempPeer)).getServerId() + " sends: \n"
-                                + receivedMessage + "\n");
+                        System.out.println("RECEIVED A MESSAGE FROM SERVER " + peers.get(peers.indexOf(tempPeer)).getServerId()
+                                + ":" + " \n" + receivedMessage + "\n");
                         packetCounter++;
                         //receiving an update message
                         if (receivedMessage.toLowerCase().startsWith("update")){
@@ -188,6 +192,10 @@ public class DistanceVectorRoutingApp {
                                 else
                                     neighbors.add(p1);
                             }
+                        } else if (receivedMessage.toLowerCase().startsWith("disable")){
+                            System.exit(0);
+                        } else{
+
                         }
                     } catch (IOException e){
                         e.printStackTrace();
@@ -269,7 +277,7 @@ public class DistanceVectorRoutingApp {
     public void update(String userInput){
         String[] updates = userInput.split(" ");
         if (updates.length != 4){
-            System.out.println("Invalid number of arguments, expected 4, received " + updates.length);
+            System.out.println("update: Invalid number of arguments, expected 4, received " + updates.length);
         } else{
             try{
                 int id1 = Integer.parseInt(updates[1]);
@@ -283,7 +291,7 @@ public class DistanceVectorRoutingApp {
                 Peer p2 = new Peer(id2);
                 Route tempRoute = new Route(p1, p2, cost);
                 if (!peers.contains(p1) || !peers.contains(p2)){
-                    System.out.println("These peers do not exist in the network.");
+                    System.out.println("update: These peers do not exist in the network.");
                 } else if (routes.contains(tempRoute)){
                     p1 = peers.get(peers.indexOf(p1));
                     p2 = peers.get(peers.indexOf(p2));
@@ -291,21 +299,22 @@ public class DistanceVectorRoutingApp {
                     tempRoute.setCost(tempRoute.getCost());
                     System.out.println("Updated cost of route \n" + tempRoute);
                     sendUpdate(p1, p2, cost);
+                    System.out.println("update SUCCESS");
                 } else{
                     p1 = peers.get(peers.indexOf(p1));
                     p2 = peers.get(peers.indexOf(p2));
                     tempRoute = new Route(p1, p2, cost);
-                    routes.add(tempRoute);
                     if(p1.getServerId()==myId)
                         neighbors.add(p2);
                     if(p2.getServerId()==myId)
                         neighbors.add(p1);
                     System.out.println("New route added \n" + tempRoute);
                     sendUpdate(p1, p2, cost);
+                    System.out.println("update SUCCESS");
                 }
                 sortRoutes();
             } catch (NumberFormatException e){
-                System.out.println("Must input integers in form of 'update [server id 1] [server id 2] [cost]'");
+                System.out.println("update: Must input integers in form of 'update [server id 1] [server id 2] [cost]'");
             }
         }
     }
@@ -346,6 +355,7 @@ public class DistanceVectorRoutingApp {
      */
     public void step(){
         sendTable();
+        System.out.println("step SUCCESS");
     }
 
     /*
@@ -356,6 +366,7 @@ public class DistanceVectorRoutingApp {
         for(Route route: routes) {
             System.out.println(route);
         }
+        System.out.println("display SUCCESS");
         System.out.print("\n");
     }
 
@@ -365,21 +376,42 @@ public class DistanceVectorRoutingApp {
     public void disable(String userInput){
         String[] input = userInput.split(" ");
         if (input.length != 2)
-            System.out.println("Invalid number of arguments, expected 2, received :" + input.length);
+            System.out.println("disable: Invalid number of arguments, expected 2, received :" + input.length);
         else {
             try{
                 int id = Integer.parseInt(input[1]);
                 Peer tempPeer = new Peer(id);
                 if (peers.contains(tempPeer)){
+                    tempPeer = peers.get(peers.indexOf(tempPeer));
                     peers.remove(tempPeer);
                     if (neighbors.contains(tempPeer))
                         neighbors.remove(tempPeer);
                     System.out.println("Removed server id " + tempPeer.getServerId() + " from network.");
+                    System.out.println("disable SUCCESS");
+                    sendDisableMessage(tempPeer);
                 } else
-                    System.out.println("Server id " + tempPeer.getServerId() + " does not exist in network.");
+                    System.out.println("disable: Server id " + tempPeer.getServerId() + " does not exist in network.");
             } catch (NumberFormatException e){
-                System.out.println("Second argument must be an integer.");
+                System.out.println("disable: Second argument must be an integer.");
             }
+        }
+    }
+
+    public void sendDisableMessage(Peer peer){
+        String message = "disable";
+        byte[] sendData = new byte[1024];
+        sendData = message.getBytes();
+        InetAddress destinationIp;
+        int destinationPort;
+        DatagramPacket out;
+        try{
+            destinationIp = InetAddress.getByName(peer.getHost());
+            destinationPort = peer.getPort();
+            System.out.println("Sending disable instruction to " + destinationIp + ":" + destinationPort);
+            out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
+            serverSocket.send(out);
+        }catch(Exception e){
+            e.printStackTrace();
         }
     }
 
@@ -412,5 +444,25 @@ public class DistanceVectorRoutingApp {
         System.out.print("\n");
     }
 
+    /*
+    HELPER FOR DISTANCE VECTOR ALGORITHM
+     */
+    private void dvrAlgorithm(){
+        for (Peer peer: peers){
+
+        }
+
+    }
+
+    /*
+    HELPER FOR CALCULATING COST IN ARRAYLIST OF ROUTES
+     */
+    private int calculateCost(ArrayList<Route> dRoutes){
+        int cost = 0;
+        for (Route route: dRoutes){
+            cost += route.getCost();
+        }
+        return cost;
+    }
 
 }

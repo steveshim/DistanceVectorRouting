@@ -1,21 +1,35 @@
 package run;
 
 
+import models.Peer;
+import models.Route;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class test {
     public static void main(String[] args) throws Exception{
-        DatagramSocket s = new DatagramSocket();
-        byte[] buffer = new byte[1024];
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
-        InetAddress ip = InetAddress.getByName("192.168.10.105");
-        String message = "Hello";
-        buffer = message.getBytes();
-
-        DatagramPacket out = new DatagramPacket(buffer, buffer.length, ip, 6500);
-        s.send(out);
+        Map<Peer, ArrayList<Route>> tester = new HashMap<>();
+        Peer p0 = new Peer(0);
+        Peer p1 = new Peer(1);
+        Route r0 = new Route(p0, p1, 10);
+        Peer p2 = new Peer(2);
+        Route r1 = new Route(p1, p2, 2);
+        ArrayList<Route> routes = new ArrayList<>();
+        routes.add(r0);
+        routes.add(r1);
+        tester.put(p2, routes);
+        Peer p3 = new Peer(3);
+        Route r2 = new Route(p2, p3, 500);
+        System.out.println(tester.get(new Peer(2)));
+        tester.get(new Peer(2)).add(r2);
+        System.out.println(tester.get(p2));
+        if (!tester.containsKey(p2)){
+            System.out.println("No");
+        }
     }
 }
