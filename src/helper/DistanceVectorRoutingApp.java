@@ -169,8 +169,9 @@ public class DistanceVectorRoutingApp {
                     try {
                         serverSocket.receive(receivePacket);
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
-                        Peer tempPeer = new Peer(receivePacket.getAddress().toString().substring(1));
-                        System.out.println("RECEIVED A MESSAGE FROM SERVER " + peers.get(peers.indexOf(tempPeer)).getServerId()
+                        Peer receivedFromPeer = new Peer(receivePacket.getAddress().toString().substring(1));
+                        receivedFromPeer = peers.get(peers.indexOf(receivedFromPeer));
+                        System.out.println("RECEIVED A MESSAGE FROM SERVER " + receivedFromPeer.getServerId()
                                 + ":" + " \n" + receivedMessage + "\n");
                         packetCounter++;
                         //receiving an update message
@@ -195,7 +196,19 @@ public class DistanceVectorRoutingApp {
                         } else if (receivedMessage.toLowerCase().startsWith("disable")){
                             System.exit(0);
                         } else{
-
+                            String[] routingMessage = receivedMessage.split(" ");
+                            int numberOfUpdates = Integer.parseInt(routingMessage[0]);
+                            HashMap<Peer, Integer> routingTable = new HashMap();
+                            for(int i=1; i<(numberOfUpdates*5); i=i+5){
+                                Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i+3]));
+                                tempPeer = peers.get(peers.indexOf(tempPeer));
+                                int routingCost = Integer.MAX_VALUE;
+                                if(!routingMessage[i+4].equals("inf")){
+                                    routingCost = Integer.parseInt(routingMessage[i+4]);
+                                }
+                                routingTable.put(tempPeer, routingCost);
+                            }
+                            dvrAlgorithm(receivedFromPeer, routingTable);
                         }
                     } catch (IOException e){
                         e.printStackTrace();
@@ -223,7 +236,7 @@ public class DistanceVectorRoutingApp {
         for(int i=0; i<peers.size(); i++){
             Peer tempPeer = peers.get(i);
             message = message + tempPeer.getHost() + "\n"
-                    + tempPeer.getPort() + "\n"
+                    + tempPeer.getPort() + " 0x0\n"
                     + tempPeer.getServerId() + " ";
             Route tempRoute = new Route(tempPeer, me, 0);
             if (routes.contains(tempRoute)){
@@ -447,12 +460,16 @@ public class DistanceVectorRoutingApp {
     /*
     HELPER FOR DISTANCE VECTOR ALGORITHM
      */
-    private void dvrAlgorithm(){
-        for (Peer peer: peers){
+    private void dvrAlgorithm(Peer receivedFrom, HashMap<Peer, Integer> routingTable){
+        int costToReceivedFrom = routes.get(routes.indexOf(new Route(receivedFrom, me, 0))).getCost();
+        for(Map.Entry<Peer, Integer> entry:routingTable.entrySet()){
+            Peer toPeer = entry.getKey();
+            Integer newRouteCost = entry.getValue();
             int currentCost = Integer.MAX_VALUE;
-            if (destinationRoutes.containsKey(peer)){
-                currentCost = calculateCost(destinationRoutes.get(peer));
+            if (destinationRoutes.containsKey(toPeer)){
+                currentCost = calculateCost(destinationRoutes.get(toPeer));
             }
+            int newCost = costToReceivedFrom + newRouteCost;
         }
 
     }
