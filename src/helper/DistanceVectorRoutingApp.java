@@ -449,7 +449,10 @@ public class DistanceVectorRoutingApp {
      */
     private void dvrAlgorithm(){
         for (Peer peer: peers){
-
+            int currentCost = Integer.MAX_VALUE;
+            if (destinationRoutes.containsKey(peer)){
+                currentCost = calculateCost(destinationRoutes.get(peer));
+            }
         }
 
     }
