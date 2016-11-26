@@ -128,7 +128,11 @@ public class DistanceVectorRoutingApp {
                             myPort = Integer.parseInt(temp[2]);
                             me = new Peer(myId, myIp, myPort);
                             peers.add(me);
-                            routes.add(new Route(me, me, 0));
+                            Route routeToMyself = new Route(me, me, 0);
+                            routes.add(routeToMyself);
+                            ArrayList<Route> routeListToMyself = new ArrayList();
+                            routeListToMyself.add(routeToMyself);
+                            destinationRoutes.put(me, routeListToMyself);
                         }
                     }
                     for (int j=0; j<numOfNeighbors; j++){
@@ -171,44 +175,50 @@ public class DistanceVectorRoutingApp {
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
                         Peer receivedFromPeer = new Peer(receivePacket.getAddress().toString().substring(1));
                         receivedFromPeer = peers.get(peers.indexOf(receivedFromPeer));
-                        System.out.println("RECEIVED A MESSAGE FROM SERVER " + receivedFromPeer.getServerId()
-                                + ":" + " \n" + receivedMessage + "\n");
+                        System.out.println("RECEIVED A MESSAGE FROM SERVER " + receivedFromPeer.getServerId());
+                        //        + ":" + " \n" + receivedMessage + "\n");
                         packetCounter++;
                         //receiving an update message
                         if (receivedMessage.toLowerCase().startsWith("update")){
-                            String[] updateMessage = receivedMessage.split(" ");
+                            String[] updateMessage = receivedMessage.split("\\s");
                             Peer p1 = new Peer(Integer.parseInt(updateMessage[1]));
                             p1 = peers.get(peers.indexOf(p1));
                             Peer p2 = new Peer(Integer.parseInt(updateMessage[2]));
                             p2 = peers.get(peers.indexOf(p2));
                             int cost = Integer.parseInt(updateMessage[3]);
                             Route tempRoute = new Route(p1, p2, cost);
-                            tempRoute = routes.get(routes.indexOf(tempRoute));
                             if (routes.contains(tempRoute)){
                                 routes.get(routes.indexOf(tempRoute)).setCost((cost));
                             } else{
                                 routes.add(tempRoute);
-                                if (p1.equals(me))
+                                ArrayList<Route> tempRoutes = new ArrayList();
+                                tempRoutes.add(tempRoute);
+                                if (p1.equals(me)) {
                                     neighbors.add(p2);
-                                else
+                                    destinationRoutes.put(p2, tempRoutes);
+                                }
+                                else {
                                     neighbors.add(p1);
+                                    destinationRoutes.put(p1, tempRoutes);
+                                }
                             }
                         } else if (receivedMessage.toLowerCase().startsWith("disable")){
                             System.exit(0);
                         } else{
-                            String[] routingMessage = receivedMessage.split(" ");
+                            String[] routingMessage = receivedMessage.split("\\s");
                             int numberOfUpdates = Integer.parseInt(routingMessage[0]);
                             HashMap<Peer, Integer> routingTable = new HashMap();
-                            for(int i=1; i<(numberOfUpdates*5); i=i+5){
-                                Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i+3]));
+                            for (int i = 1; i < (numberOfUpdates * 5); i = i + 5) {
+                                Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i + 3]));
                                 tempPeer = peers.get(peers.indexOf(tempPeer));
                                 int routingCost = Integer.MAX_VALUE;
-                                if(!routingMessage[i+4].equals("inf")){
-                                    routingCost = Integer.parseInt(routingMessage[i+4]);
+                                if (!routingMessage[i + 4].equals("inf")) {
+                                    routingCost = Integer.parseInt(routingMessage[i + 4]);
                                 }
                                 routingTable.put(tempPeer, routingCost);
                             }
                             dvrAlgorithm(receivedFromPeer, routingTable);
+
                         }
                     } catch (IOException e){
                         e.printStackTrace();
@@ -238,9 +248,8 @@ public class DistanceVectorRoutingApp {
             message = message + tempPeer.getHost() + "\n"
                     + tempPeer.getPort() + " 0x0\n"
                     + tempPeer.getServerId() + " ";
-            Route tempRoute = new Route(tempPeer, me, 0);
-            if (routes.contains(tempRoute)){
-                message = message + routes.get(routes.indexOf(tempRoute)).getCost() + "\n";
+            if (destinationRoutes.containsKey(tempPeer)){
+                message = message + calculateCost(destinationRoutes.get(tempPeer)) + "\n";
             } else{
                 message = message + "inf" + "\n";
             }
@@ -305,25 +314,20 @@ public class DistanceVectorRoutingApp {
                 Route tempRoute = new Route(p1, p2, cost);
                 if (!peers.contains(p1) || !peers.contains(p2)){
                     System.out.println("update: These peers do not exist in the network.");
-                } else if (routes.contains(tempRoute)){
+                } else {
                     p1 = peers.get(peers.indexOf(p1));
                     p2 = peers.get(peers.indexOf(p2));
-                    tempRoute = routes.get(routes.indexOf(tempRoute));
-                    tempRoute.setCost(tempRoute.getCost());
-                    System.out.println("Updated cost of route \n" + tempRoute);
-                    sendUpdate(p1, p2, cost);
-                    System.out.println("update SUCCESS");
-                } else{
-                    p1 = peers.get(peers.indexOf(p1));
-                    p2 = peers.get(peers.indexOf(p2));
-                    tempRoute = new Route(p1, p2, cost);
-                    if(p1.getServerId()==myId)
-                        neighbors.add(p2);
-                    if(p2.getServerId()==myId)
-                        neighbors.add(p1);
-                    System.out.println("New route added \n" + tempRoute);
-                    sendUpdate(p1, p2, cost);
-                    System.out.println("update SUCCESS");
+                    if (routes.contains(tempRoute)){
+                        tempRoute = routes.get(routes.indexOf(tempRoute));
+                        tempRoute.setCost(cost);
+                        System.out.println("Updated cost of route \n" + tempRoute);
+                        sendUpdate(p1, p2, cost);
+                        System.out.println("update SUCCESS");
+                    } else{
+                        System.out.println("New route added \n" + tempRoute);
+                        sendUpdate(p1, p2, cost);
+                        System.out.println("update SUCCESS");
+                    }
                 }
                 sortRoutes();
             } catch (NumberFormatException e){
@@ -376,8 +380,16 @@ public class DistanceVectorRoutingApp {
      */
     public void displayTable(){
         System.out.println("Routing table:");
-        for(Route route: routes) {
-            System.out.println(route);
+        sortDestinationRoutes();
+        for(Peer peer: peers) {
+            if (destinationRoutes.containsKey(peer)){
+                ArrayList<Route> routeToPeer = destinationRoutes.get(peer);
+                Route lastRouteInList = routeToPeer.get(routeToPeer.size()-1);
+                System.out.println(peer.getServerId() + " " + lastRouteInList.getPeerFrom().getServerId()
+                        + " " + lastRouteInList.getCost());
+            } else{
+                System.out.println(peer.getServerId() + " " + myId + " inf");
+            }
         }
         System.out.println("display SUCCESS");
         System.out.print("\n");
@@ -444,6 +456,31 @@ public class DistanceVectorRoutingApp {
             }
         }
         Collections.sort(routes, (a,b)->a.getPeerTo().getServerId().compareTo(b.getPeerTo().getServerId()));
+    }
+
+    /*
+    HELPER METHOD TO SORT DESTINATIONROUTES
+     */
+    public void sortDestinationRoutes(){
+        Collections.sort(peers, (a,b)->a.getServerId().compareTo(b.getServerId()));
+        for (Peer peer: peers){
+            if(destinationRoutes.containsKey(peer)){
+                ArrayList<Route> tempRoutes = destinationRoutes.get(peer);
+                Route firstRoute = tempRoutes.get(0);
+                if(!firstRoute.getPeerFrom().equals(me)){
+                    firstRoute.setPeerTo(firstRoute.getPeerFrom());
+                    firstRoute.setPeerFrom(me);
+                }
+                if (tempRoutes.size()>1){
+                    Route secondRoute = tempRoutes.get(1);
+                    if(!secondRoute.getPeerFrom().equals(firstRoute.getPeerTo())){
+                        Peer destPeer = secondRoute.getPeerFrom();
+                        secondRoute.setPeerFrom(firstRoute.getPeerTo());
+                        secondRoute.setPeerTo(destPeer);
+                    }
+                }
+            }
+        }
     }
 
     /*
