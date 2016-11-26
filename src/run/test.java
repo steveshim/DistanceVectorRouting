@@ -33,5 +33,16 @@ public class test {
         tester.replace(p2,routes2);
         System.out.println("new list" + tester.get(p2));
 
+        ArrayList<Route> testR1 = new ArrayList();
+        testR1.add(new Route(new Peer(1), new Peer(2), 10));
+        testR1.add(new Route(new Peer(2), new Peer(3), 500));
+        ArrayList<Route> testR2 = new ArrayList<>();
+        testR2.add(new Route(new Peer(1), new Peer(2), 2));
+        testR2.add(new Route(new Peer(2), new Peer(3), 4));
+        testR2.add(new Route(new Peer(3), new Peer(4), 10));
+        if(testR1.equals(testR2)){
+            System.out.println("theyre equal");
+        }
+
     }
 }

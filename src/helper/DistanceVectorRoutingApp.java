@@ -558,17 +558,22 @@ public class DistanceVectorRoutingApp {
             Integer newRouteCost = entry.getValue() + costToReceivedFrom;
             int currentCost;
             ArrayList<Route> tempListRoutes = new ArrayList();
+            tempListRoutes.add(routeToReceivedFrom);
+            tempListRoutes.add(tempRouteToDestination);
             if (destinationRoutes.containsKey(toPeer)){
                 currentCost = calculateCost(destinationRoutes.get(toPeer));
-                if (currentCost > newRouteCost){
-                    tempListRoutes.add(routeToReceivedFrom);
-                    tempListRoutes.add(tempRouteToDestination);
+                if (currentCost < newRouteCost ||
+                        (destinationRoutes.get(toPeer).equals(tempListRoutes) && currentCost != newRouteCost)){
                     destinationRoutes.replace(toPeer, tempListRoutes);
                 }
             } else{
-                tempListRoutes.add(routeToReceivedFrom);
-                tempListRoutes.add(tempRouteToDestination);
                 destinationRoutes.put(toPeer, tempListRoutes);
+            }
+        }
+
+        for (Peer peer: peers){
+            if (destinationRoutes.containsKey(peer)){
+
             }
         }
 
