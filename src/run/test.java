@@ -28,8 +28,10 @@ public class test {
         System.out.println(tester.get(new Peer(2)));
         tester.get(new Peer(2)).add(r2);
         System.out.println(tester.get(p2));
-        if (!tester.containsKey(p2)){
-            System.out.println("No");
-        }
+        ArrayList<Route> routes2 = new ArrayList<>();
+        routes2.add(new Route(p0, p2, 10));
+        tester.replace(p2,routes2);
+        System.out.println("new list" + tester.get(p2));
+
     }
 }

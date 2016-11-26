@@ -188,8 +188,21 @@ public class DistanceVectorRoutingApp {
                             int cost = Integer.parseInt(updateMessage[3]);
                             Route tempRoute = new Route(p1, p2, cost);
                             if (routes.contains(tempRoute)){
-                                routes.get(routes.indexOf(tempRoute)).setCost((cost));
-                            } else{
+                                if (cost != Integer.MAX_VALUE) {
+                                    routes.get(routes.indexOf(tempRoute)).setCost((cost));
+                                } else{
+                                    if (p1.equals(me)) {
+                                        neighbors.remove(p2);
+                                        routes.remove(tempRoute);
+                                        destinationRoutes.remove(p2);
+                                    }
+                                    else {
+                                        neighbors.remove(p1);
+                                        routes.remove(tempRoute);
+                                        destinationRoutes.remove(p1);
+                                    }
+                                }
+                            } else if (cost != Integer.MAX_VALUE){
                                 routes.add(tempRoute);
                                 ArrayList<Route> tempRoutes = new ArrayList();
                                 tempRoutes.add(tempRoute);
@@ -202,20 +215,25 @@ public class DistanceVectorRoutingApp {
                                     destinationRoutes.put(p1, tempRoutes);
                                 }
                             }
-                        } else if (receivedMessage.toLowerCase().startsWith("disable")){
+                            sendTable();
+                        }
+                        //receiving a disable message
+                        else if (receivedMessage.toLowerCase().startsWith("disable")){
+                            System.out.println("You have been disabled.");
                             System.exit(0);
-                        } else{
+                        }
+                        //receiving a routing table from step or periodic schedule
+                        else{
                             String[] routingMessage = receivedMessage.split("\\s");
                             int numberOfUpdates = Integer.parseInt(routingMessage[0]);
                             HashMap<Peer, Integer> routingTable = new HashMap();
                             for (int i = 1; i < (numberOfUpdates * 5); i = i + 5) {
-                                Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i + 3]));
-                                tempPeer = peers.get(peers.indexOf(tempPeer));
-                                int routingCost = Integer.MAX_VALUE;
                                 if (!routingMessage[i + 4].equals("inf")) {
-                                    routingCost = Integer.parseInt(routingMessage[i + 4]);
+                                    Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i + 3]));
+                                    tempPeer = peers.get(peers.indexOf(tempPeer));
+                                    int routingCost = Integer.parseInt(routingMessage[i + 4]);
+                                    routingTable.put(tempPeer, routingCost);
                                 }
-                                routingTable.put(tempPeer, routingCost);
                             }
                             dvrAlgorithm(receivedFromPeer, routingTable);
 
@@ -305,8 +323,9 @@ public class DistanceVectorRoutingApp {
                 int id1 = Integer.parseInt(updates[1]);
                 int id2 = Integer.parseInt(updates[2]);
                 int cost;
-                if (updates[3].toLowerCase().equals("inf"))
+                if (updates[3].toLowerCase().equals("inf")) {
                     cost = Integer.MAX_VALUE;
+                }
                 else
                     cost = Integer.parseInt(updates[3]);
                 Peer p1 = new Peer(id1);
@@ -318,12 +337,38 @@ public class DistanceVectorRoutingApp {
                     p1 = peers.get(peers.indexOf(p1));
                     p2 = peers.get(peers.indexOf(p2));
                     if (routes.contains(tempRoute)){
-                        tempRoute = routes.get(routes.indexOf(tempRoute));
-                        tempRoute.setCost(cost);
-                        System.out.println("Updated cost of route \n" + tempRoute);
-                        sendUpdate(p1, p2, cost);
-                        System.out.println("update SUCCESS");
+                        if (cost==Integer.MAX_VALUE){
+                            if (p1.equals(me)) {
+                                neighbors.remove(p2);
+                                routes.remove(tempRoute);
+                                destinationRoutes.remove(p2);
+                            }
+                            else {
+                                neighbors.remove(p1);
+                                routes.remove(tempRoute);
+                                destinationRoutes.remove(p1);
+                            }
+                        }else {
+                            tempRoute = routes.get(routes.indexOf(tempRoute));
+                            tempRoute.setCost(cost);
+                            System.out.println("Updated cost of route \n" + tempRoute);
+                            sendUpdate(p1, p2, cost);
+                            System.out.println("update SUCCESS");
+                        }
                     } else{
+                        if (cost != Integer.MAX_VALUE && (p1.equals(me) || p2.equals(me))){
+                            routes.add(tempRoute);
+                            ArrayList<Route> tempRouteList = new ArrayList();
+                            tempRouteList.add(tempRoute);
+                            if(p1.equals(me)){
+                                neighbors.add(p2);
+                                destinationRoutes.put(p2, tempRouteList);
+                            } else{
+                                neighbors.add(p1);
+                                destinationRoutes.put(p1, tempRouteList);
+                            }
+
+                        }
                         System.out.println("New route added \n" + tempRoute);
                         sendUpdate(p1, p2, cost);
                         System.out.println("update SUCCESS");
@@ -386,7 +431,7 @@ public class DistanceVectorRoutingApp {
                 ArrayList<Route> routeToPeer = destinationRoutes.get(peer);
                 Route lastRouteInList = routeToPeer.get(routeToPeer.size()-1);
                 System.out.println(peer.getServerId() + " " + lastRouteInList.getPeerFrom().getServerId()
-                        + " " + lastRouteInList.getCost());
+                        + " " + calculateCost(routeToPeer));
             } else{
                 System.out.println(peer.getServerId() + " " + myId + " inf");
             }
@@ -408,9 +453,10 @@ public class DistanceVectorRoutingApp {
                 Peer tempPeer = new Peer(id);
                 if (peers.contains(tempPeer)){
                     tempPeer = peers.get(peers.indexOf(tempPeer));
-                    peers.remove(tempPeer);
                     if (neighbors.contains(tempPeer))
                         neighbors.remove(tempPeer);
+                    if (destinationRoutes.containsKey(tempPeer))
+                        destinationRoutes.remove(tempPeer);
                     System.out.println("Removed server id " + tempPeer.getServerId() + " from network.");
                     System.out.println("disable SUCCESS");
                     sendDisableMessage(tempPeer);
@@ -498,15 +544,32 @@ public class DistanceVectorRoutingApp {
     HELPER FOR DISTANCE VECTOR ALGORITHM
      */
     private void dvrAlgorithm(Peer receivedFrom, HashMap<Peer, Integer> routingTable){
-        int costToReceivedFrom = routes.get(routes.indexOf(new Route(receivedFrom, me, 0))).getCost();
+        Route tempRoute = new Route(receivedFrom, me, 0);
+        Route routeToReceivedFrom = tempRoute;
+        int costToReceivedFrom = tempRoute.getCost();
+        if(routes.contains(tempRoute)) {
+            routeToReceivedFrom = routes.get(routes.indexOf(tempRoute));
+            costToReceivedFrom = routeToReceivedFrom.getCost();
+        }
+
         for(Map.Entry<Peer, Integer> entry:routingTable.entrySet()){
             Peer toPeer = entry.getKey();
-            Integer newRouteCost = entry.getValue();
-            int currentCost = Integer.MAX_VALUE;
+            Route tempRouteToDestination = new Route(toPeer, receivedFrom, entry.getValue());
+            Integer newRouteCost = entry.getValue() + costToReceivedFrom;
+            int currentCost;
+            ArrayList<Route> tempListRoutes = new ArrayList();
             if (destinationRoutes.containsKey(toPeer)){
                 currentCost = calculateCost(destinationRoutes.get(toPeer));
+                if (currentCost > newRouteCost){
+                    tempListRoutes.add(routeToReceivedFrom);
+                    tempListRoutes.add(tempRouteToDestination);
+                    destinationRoutes.replace(toPeer, tempListRoutes);
+                }
+            } else{
+                tempListRoutes.add(routeToReceivedFrom);
+                tempListRoutes.add(tempRouteToDestination);
+                destinationRoutes.put(toPeer, tempListRoutes);
             }
-            int newCost = costToReceivedFrom + newRouteCost;
         }
 
     }
@@ -521,5 +584,6 @@ public class DistanceVectorRoutingApp {
         }
         return cost;
     }
+
 
 }
