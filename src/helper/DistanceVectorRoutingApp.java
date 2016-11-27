@@ -243,6 +243,8 @@ public class DistanceVectorRoutingApp {
                                 neighbors.add(receivedFromPeer);
                                 responseReceived.put(receivedFromPeer, false);
                                 countNoResponses.put(receivedFromPeer, 0);
+                                scheduledUpdate.shutdown();
+                                startRoutingUpdateInterval(interval);
                             }
                             String[] routingMessage = receivedMessage.split("\\s");
                             int numberOfUpdates = Integer.parseInt(routingMessage[0]);
@@ -407,9 +409,11 @@ public class DistanceVectorRoutingApp {
                                 countNoResponses.put(p1, 0);
                                 responseReceived.put(p1, false);
                             }
+                            scheduledUpdate.shutdown();
+                            startRoutingUpdateInterval(interval);
 
                         }
-                        System.out.println("New route added \n" + tempRoute);
+                        //System.out.println("New route added \n" + tempRoute);
                         sendUpdate(p1, p2, cost);
                         System.out.println("update SUCCESS");
                     }
@@ -432,7 +436,7 @@ public class DistanceVectorRoutingApp {
             try {
                 destinationIp = InetAddress.getByName(p1.getHost());
                 destinationPort = p1.getPort();
-                System.out.println("Sending update to " + destinationIp + ":" + destinationPort);
+                //System.out.println("Sending update to " + destinationIp + ":" + destinationPort);
                 out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
                 serverSocket.send(out);
             } catch(Exception e){
@@ -443,7 +447,7 @@ public class DistanceVectorRoutingApp {
             try {
                 destinationIp = InetAddress.getByName(p2.getHost());
                 destinationPort = p2.getPort();
-                System.out.println("Sending update to " + destinationIp + ":" + destinationPort);
+                //System.out.println("Sending update to " + destinationIp + ":" + destinationPort);
                 out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
                 serverSocket.send(out);
             } catch(Exception e){
@@ -603,7 +607,11 @@ public class DistanceVectorRoutingApp {
             ArrayList<Route> tempListRoutes = new ArrayList();
             tempListRoutes.add(routeToReceivedFrom);
             tempListRoutes.add(tempRouteToDestination);
-            if (destinationRoutes.containsKey(toPeer)){
+            if(toPeer.equals(me) && !destinationRoutes.containsKey(receivedFrom)){
+                tempListRoutes.removeAll(tempListRoutes);
+                tempListRoutes.add(routeToReceivedFrom);
+                destinationRoutes.put(receivedFrom, tempListRoutes);
+            } else if (destinationRoutes.containsKey(toPeer)){
                 currentCost = calculateCost(destinationRoutes.get(toPeer));
                 if (currentCost > newRouteCost ||
                         (destinationRoutes.get(toPeer).equals(tempListRoutes) && currentCost != newRouteCost)){
