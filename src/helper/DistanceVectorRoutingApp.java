@@ -180,9 +180,16 @@ public class DistanceVectorRoutingApp {
                         serverSocket.receive(receivePacket);
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
                         Peer receivedFromPeer = new Peer(receivePacket.getAddress().toString().substring(1));
-                        receivedFromPeer = peers.get(peers.indexOf(receivedFromPeer));
-                        responseReceived.replace(receivedFromPeer, true);
-                        countNoResponses.replace(receivedFromPeer, 0);
+                        if(peers.contains(receivedFromPeer)) {
+                            receivedFromPeer = peers.get(peers.indexOf(receivedFromPeer));
+                            responseReceived.replace(receivedFromPeer, true);
+                            countNoResponses.replace(receivedFromPeer, 0);
+                        } else{
+                            receivedFromPeer.setPort(receivePacket.getPort());
+                            receivedFromPeer.setServerId(peers.size());
+                            responseReceived.put(receivedFromPeer, false);
+                            countNoResponses.put(receivedFromPeer, 0);
+                        }
                         System.out.println("RECEIVED A MESSAGE FROM SERVER " + receivedFromPeer.getServerId());
                         //        + ":" + " \n" + receivedMessage + "\n");
                         packetCounter++;
@@ -232,6 +239,11 @@ public class DistanceVectorRoutingApp {
                         }
                         //receiving a routing table from step or periodic schedule
                         else{
+                            if(!neighbors.contains(receivedFromPeer)){
+                                neighbors.add(receivedFromPeer);
+                                responseReceived.put(receivedFromPeer, false);
+                                countNoResponses.put(receivedFromPeer, 0);
+                            }
                             String[] routingMessage = receivedMessage.split("\\s");
                             int numberOfUpdates = Integer.parseInt(routingMessage[0]);
                             HashMap<Peer, Integer> routingTable = new HashMap();
@@ -387,9 +399,13 @@ public class DistanceVectorRoutingApp {
                             if(p1.equals(me)){
                                 neighbors.add(p2);
                                 destinationRoutes.put(p2, tempRouteList);
+                                countNoResponses.put(p2, 0);
+                                responseReceived.put(p2, false);
                             } else{
                                 neighbors.add(p1);
                                 destinationRoutes.put(p1, tempRouteList);
+                                countNoResponses.put(p1, 0);
+                                responseReceived.put(p1, false);
                             }
 
                         }
