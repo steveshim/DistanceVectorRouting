@@ -29,11 +29,15 @@ public class DistanceVectorRoutingApp {
     private Integer numOfNeighbors;
     private ScheduledExecutorService scheduledUpdate;
     private Map<Peer, ArrayList<Route>> destinationRoutes;
+    private Map<Peer, Integer> countNoResponses;
+    private Map<Peer, Boolean> responseReceived;
 
     public DistanceVectorRoutingApp() throws IOException {
         myIp = Inet4Address.getLocalHost().getHostAddress();
         input = new BufferedReader(new InputStreamReader(System.in));
         destinationRoutes = new HashMap();
+        countNoResponses = new HashMap();
+        responseReceived = new HashMap();
         packetCounter = 0;
     }
 
@@ -140,6 +144,8 @@ public class DistanceVectorRoutingApp {
                         int tempServerId = Integer.parseInt(temp[1]);
                         Peer tempPeer = peers.get(peers.indexOf(new Peer(tempServerId)));
                         neighbors.add(tempPeer);
+                        responseReceived.put(tempPeer, false);
+                        countNoResponses.put(tempPeer, 0);
                         Route tempRoute = new Route(tempPeer, me, Integer.parseInt(temp[2]));
                         routes.add(tempRoute);
                         ArrayList<Route> tempDestinationRoutes = new ArrayList();
@@ -175,6 +181,8 @@ public class DistanceVectorRoutingApp {
                         String receivedMessage = new String(receivePacket.getData(), 0, receivePacket.getLength());
                         Peer receivedFromPeer = new Peer(receivePacket.getAddress().toString().substring(1));
                         receivedFromPeer = peers.get(peers.indexOf(receivedFromPeer));
+                        responseReceived.replace(receivedFromPeer, true);
+                        countNoResponses.replace(receivedFromPeer, 0);
                         System.out.println("RECEIVED A MESSAGE FROM SERVER " + receivedFromPeer.getServerId());
                         //        + ":" + " \n" + receivedMessage + "\n");
                         packetCounter++;
@@ -254,6 +262,22 @@ public class DistanceVectorRoutingApp {
         scheduledUpdate.scheduleAtFixedRate(new Runnable(){
             @Override
             public void run(){
+                for(Peer neighbor: neighbors){
+                    if(!responseReceived.get(neighbor)){
+                        int count = countNoResponses.get(neighbor) + 1;
+                        countNoResponses.replace(neighbor, count);
+                    } else{
+                        responseReceived.replace(neighbor, false);
+                    }
+                    if (countNoResponses.get(neighbor) == 3){
+                        System.out.println("Removing server " + neighbor.getServerId() + " from neighbors.");
+                        neighbors.remove(neighbor);
+                        routes.remove(new Route(neighbor, me, 0));
+                        destinationRoutes.remove(neighbor);
+                        countNoResponses.remove(neighbor);
+                        responseReceived.remove(neighbor);
+                    }
+                }
                 sendTable();
             }
         }, userInterval, userInterval, TimeUnit.SECONDS);
@@ -282,7 +306,7 @@ public class DistanceVectorRoutingApp {
             try {
                 destinationIp = InetAddress.getByName(peer.getHost());
                 destinationPort = peer.getPort();
-                System.out.println("Sending message to " + destinationIp + ":" + destinationPort);
+                //System.out.println("Sending message to " + destinationIp + ":" + destinationPort);
                 out = new DatagramPacket(sendData, sendData.length, destinationIp, destinationPort);
                 serverSocket.send(out);
             } catch (Exception e){
@@ -550,6 +574,9 @@ public class DistanceVectorRoutingApp {
         if(routes.contains(tempRoute)) {
             routeToReceivedFrom = routes.get(routes.indexOf(tempRoute));
             costToReceivedFrom = routeToReceivedFrom.getCost();
+        } else{
+            costToReceivedFrom = routingTable.get(me);
+            routeToReceivedFrom.setCost(costToReceivedFrom);
         }
 
         for(Map.Entry<Peer, Integer> entry:routingTable.entrySet()){
