@@ -4,4 +4,6 @@
 .project
 /bin/
 out/
+src/META-INF/
 DistanceVectorRouting.iml
+top.txt
