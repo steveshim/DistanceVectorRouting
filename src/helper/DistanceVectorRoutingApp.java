@@ -250,12 +250,15 @@ public class DistanceVectorRoutingApp {
                             int numberOfUpdates = Integer.parseInt(routingMessage[0]);
                             HashMap<Peer, Integer> routingTable = new HashMap();
                             for (int i = 1; i < (numberOfUpdates * 5); i = i + 5) {
+                                Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i + 3]));
+                                tempPeer = peers.get(peers.indexOf(tempPeer));
+                                int routingCost;
                                 if (!routingMessage[i + 4].equals("inf")) {
-                                    Peer tempPeer = new Peer(Integer.parseInt(routingMessage[i + 3]));
-                                    tempPeer = peers.get(peers.indexOf(tempPeer));
-                                    int routingCost = Integer.parseInt(routingMessage[i + 4]);
-                                    routingTable.put(tempPeer, routingCost);
+                                    routingCost = Integer.parseInt(routingMessage[i + 4]);
+                                } else{
+                                    routingCost = Integer.MAX_VALUE;
                                 }
+                                routingTable.put(tempPeer, routingCost);
                             }
                             dvrAlgorithm(receivedFromPeer, routingTable);
 
@@ -612,7 +615,11 @@ public class DistanceVectorRoutingApp {
             ArrayList<Route> tempListRoutes = new ArrayList();
             tempListRoutes.add(routeToReceivedFrom);
             tempListRoutes.add(tempRouteToDestination);
-            if(toPeer.equals(me) && !destinationRoutes.containsKey(receivedFrom)){
+            if((newRouteCost < 0 || newRouteCost == Integer.MAX_VALUE) && destinationRoutes.containsKey(toPeer)){
+                destinationRoutes.remove(toPeer);
+            } else if(newRouteCost < 0 || newRouteCost == Integer.MAX_VALUE){
+                continue;
+            } else if(toPeer.equals(me) && !destinationRoutes.containsKey(receivedFrom)){
                 tempListRoutes.removeAll(tempListRoutes);
                 tempListRoutes.add(routeToReceivedFrom);
                 destinationRoutes.put(receivedFrom, tempListRoutes);
