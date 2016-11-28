@@ -276,6 +276,7 @@ public class DistanceVectorRoutingApp {
         scheduledUpdate.scheduleAtFixedRate(new Runnable(){
             @Override
             public void run(){
+                ArrayList<Peer> removedNeighbors = new ArrayList();
                 for(Peer neighbor: neighbors){
                     if(!responseReceived.get(neighbor)){
                         int count = countNoResponses.get(neighbor) + 1;
@@ -285,12 +286,15 @@ public class DistanceVectorRoutingApp {
                     }
                     if (countNoResponses.get(neighbor) == 3){
                         System.out.println("Removing server " + neighbor.getServerId() + " from neighbors.");
-                        neighbors.remove(neighbor);
+                        removedNeighbors.add(neighbor);
                         routes.remove(new Route(neighbor, me, 0));
                         destinationRoutes.remove(neighbor);
                         countNoResponses.remove(neighbor);
                         responseReceived.remove(neighbor);
                     }
+                }
+                for(Peer peer: removedNeighbors){
+                    neighbors.remove(peer);
                 }
                 sendTable();
             }
@@ -580,6 +584,7 @@ public class DistanceVectorRoutingApp {
         System.out.println("Current neighbors are: ");
         for(Peer peer:neighbors){
             System.out.println(peer);
+            System.out.println("No responses:" + countNoResponses.get(peer));
         }
         System.out.print("\n");
     }
