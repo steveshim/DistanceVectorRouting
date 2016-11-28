@@ -623,7 +623,7 @@ public class DistanceVectorRoutingApp {
                 destinationRoutes.remove(toPeer);
             } else if(newRouteCost < 0 || newRouteCost == Integer.MAX_VALUE){
                 continue;
-            } else if(toPeer.equals(me) && !destinationRoutes.containsKey(receivedFrom)){
+            } else if(toPeer.equals(me) ){
                 tempListRoutes.removeAll(tempListRoutes);
                 tempListRoutes.add(routeToReceivedFrom);
                 destinationRoutes.put(receivedFrom, tempListRoutes);
