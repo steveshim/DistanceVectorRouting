@@ -241,6 +241,10 @@ public class DistanceVectorRoutingApp {
                         else{
                             if(!neighbors.contains(receivedFromPeer)){
                                 neighbors.add(receivedFromPeer);
+                                ArrayList<Route> tempList = new ArrayList();
+                                Route routeToReceivedFromPeer = new Route(receivedFromPeer, me, 0);
+                                tempList.add(routeToReceivedFromPeer);
+                                destinationRoutes.put(receivedFromPeer, tempList);
                                 responseReceived.put(receivedFromPeer, false);
                                 countNoResponses.put(receivedFromPeer, 0);
                                 scheduledUpdate.shutdown();
