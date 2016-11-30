@@ -182,8 +182,10 @@ public class DistanceVectorRoutingApp {
                         Peer receivedFromPeer = new Peer(receivePacket.getAddress().toString().substring(1));
                         if(peers.contains(receivedFromPeer)) {
                             receivedFromPeer = peers.get(peers.indexOf(receivedFromPeer));
-                            responseReceived.replace(receivedFromPeer, true);
-                            countNoResponses.replace(receivedFromPeer, 0);
+                            if (responseReceived.containsKey(receivedFromPeer)) {
+                                responseReceived.replace(receivedFromPeer, true);
+                                countNoResponses.replace(receivedFromPeer, 0);
+                            }
                         } else{
                             receivedFromPeer.setPort(receivePacket.getPort());
                             receivedFromPeer.setServerId(peers.size());
@@ -400,7 +402,7 @@ public class DistanceVectorRoutingApp {
                         }else {
                             tempRoute = routes.get(routes.indexOf(tempRoute));
                             tempRoute.setCost(cost);
-                            System.out.println("Updated cost of route \n" + tempRoute);
+                            //System.out.println("Updated cost of route \n" + tempRoute);
                             sendUpdate(p1, p2, cost);
                             System.out.println("update SUCCESS");
                         }
@@ -619,9 +621,14 @@ public class DistanceVectorRoutingApp {
             ArrayList<Route> tempListRoutes = new ArrayList();
             tempListRoutes.add(routeToReceivedFrom);
             tempListRoutes.add(tempRouteToDestination);
-            if((newRouteCost < 0 || newRouteCost == Integer.MAX_VALUE) && destinationRoutes.containsKey(toPeer)){
+            if(entry.getValue() == Integer.MAX_VALUE && destinationRoutes.containsKey(toPeer)
+                    && destinationRoutes.get(toPeer).equals(tempListRoutes)){
                 destinationRoutes.remove(toPeer);
-            } else if(newRouteCost < 0 || newRouteCost == Integer.MAX_VALUE){
+                if(countNoResponses.containsKey(toPeer)) {
+                    countNoResponses.remove(toPeer);
+                    responseReceived.remove(toPeer);
+                }
+            } else if(entry.getValue() == Integer.MAX_VALUE){
                 continue;
             } else if(toPeer.equals(me) ){
                 tempListRoutes.removeAll(tempListRoutes);
